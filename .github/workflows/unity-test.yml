@@ -1,0 +1,134 @@
+name: Unity Test Runner (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      unity-version:
+        description: "Target Unity editor version. If omitted, resolved from ProjectSettings/ProjectVersion.txt."
+        required: false
+        type: string
+        default: ""
+      project-path:
+        description: "Relative path to the Unity project root."
+        required: false
+        type: string
+        default: "."
+      test-platforms:
+        description: "Comma-separated list of test platforms to execute (EditMode, PlayMode)."
+        required: false
+        type: string
+        default: "EditMode,PlayMode"
+      runner-labels:
+        description: "JSON array of labels for runner selection."
+        required: false
+        type: string
+        default: '["self-hosted", "windows", "unity"]'
+      clean-library:
+        description: "Whether to force clean the Library/ cache directory."
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  test:
+    name: Run Unity Tests
+    runs-on: ${{ fromJSON(inputs.runner-labels) }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    concurrency:
+      group: unity-test-${{ github.repository }}-${{ inputs.project-path }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          lfs: true
+
+      - name: Resolve Unity Editor Version
+        id: unity-version
+        shell: pwsh
+        run: |
+          $args = @{ ProjectPath = "${{ inputs.project-path }}" }
+          if ("${{ inputs.unity-version }}" -ne "") {
+              $args["ExplicitVersion"] = "${{ inputs.unity-version }}"
+          }
+          .\scripts\Get-UnityVersion.ps1 @args
+
+      - name: Validate & Guard Library Cache
+        shell: pwsh
+        run: |
+          $forceClean = [System.Convert]::ToBoolean("${{ inputs.clean-library }}")
+          .\scripts\Guard-LibraryCache.ps1 -ProjectPath "${{ inputs.project-path }}" -ForceClean:$forceClean
+
+      - name: Prepare Test Output Directory
+        shell: pwsh
+        run: |
+          $testDir = Join-Path "${{ inputs.project-path }}" "TestResults"
+          if (-not (Test-Path $testDir)) {
+              New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+          }
+
+      - name: Execute Unity EditMode & PlayMode Tests
+        shell: pwsh
+        run: |
+          $editorPath = "${{ steps.unity-version.outputs.unity_path }}"
+          if ([string]::IsNullOrWhiteSpace($editorPath) -or -not (Test-Path $editorPath)) {
+              throw "Unity editor executable was not found on runner."
+          }
+
+          $platforms = "${{ inputs.test-platforms }}".Split(",") | ForEach-Object { $_.Trim() }
+          $hasFailures = $false
+
+          foreach ($platform in $platforms) {
+              Write-Host "=== Running Unity Tests [$platform] ===" -ForegroundColor Cyan
+              $xmlOutput = Join-Path "${{ inputs.project-path }}" "TestResults\$platform-results.xml"
+              $logOutput = Join-Path "${{ inputs.project-path }}" "TestResults\$platform-unity.log"
+
+              $testArgs = @(
+                  "-batchmode",
+                  "-nographics",
+                  "-projectPath", "${{ inputs.project-path }}",
+                  "-runTests",
+                  "-testPlatform", $platform,
+                  "-testResults", $xmlOutput,
+                  "-logFile", $logOutput
+              )
+
+              $process = Start-Process -FilePath $editorPath -ArgumentList $testArgs -Wait -PassThru -NoNewWindow
+              $diag = .\scripts\Map-UnityExitCode.ps1 -ExitCode $process.ExitCode -LogFile $logOutput
+
+              if ($process.ExitCode -ne 0) {
+                  $hasFailures = $true
+              }
+
+              # Summarize NUnit results in GitHub Actions Job Summary
+              if (Test-Path $xmlOutput) {
+                  [xml]$xml = Get-Content -Path $xmlOutput
+                  $total = $xml.'test-run'.total
+                  $passed = $xml.'test-run'.passed
+                  $failed = $xml.'test-run'.failed
+                  $skipped = $xml.'test-run'.skipped
+                  $duration = $xml.'test-run'.duration
+
+                  Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Unity Tests: $platform"
+                  Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "| Total | Passed | Failed | Skipped | Duration |"
+                  Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "| :---: | :----: | :----: | :-----: | :------: |"
+                  Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "| $total | $passed | $failed | $skipped | ${duration}s |"
+              }
+          }
+
+          if ($hasFailures) {
+              throw "One or more Unity test suites failed. Inspect job logs and annotations."
+          }
+
+      - name: Upload Test Results Artifact
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: unity-test-results
+          path: ${{ inputs.project-path }}/TestResults/
+          if-no-files-found: ignore

@@ -1,0 +1,22 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  run-tests:
+    name: Unity Tests
+    uses: thesanketkale/unity-build-pipeline/.github/workflows/unity-test.yml@v0.1.0
+    with:
+      project-path: "."
+      test-platforms: "EditMode,PlayMode"
+      clean-library: false

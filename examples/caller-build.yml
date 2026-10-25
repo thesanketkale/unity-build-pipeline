@@ -1,0 +1,23 @@
+name: Build Game Packages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build-packages:
+    name: Unity Multiplatform Build
+    uses: thesanketkale/unity-build-pipeline/.github/workflows/unity-build.yml@v0.1.0
+    with:
+      project-path: "."
+      build-targets: '["StandaloneWindows64", "Android", "WebGL"]'
+      android-build-format: "AAB"
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+      ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+      ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}

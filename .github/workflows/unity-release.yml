@@ -1,0 +1,85 @@
+name: Unity Release Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      project-path:
+        description: "Relative path to the Unity project root."
+        required: false
+        type: string
+        default: "."
+      build-targets:
+        description: "JSON array of build target platforms to release."
+        required: false
+        type: string
+        default: '["StandaloneWindows64", "Android", "WebGL"]'
+      runner-labels:
+        description: "JSON array of labels for runner selection."
+        required: false
+        type: string
+        default: '["self-hosted", "windows", "unity"]'
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASS:
+        required: false
+      ANDROID_KEYALIAS_NAME:
+        required: false
+      ANDROID_KEYALIAS_PASS:
+        required: false
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build Release Packages
+    uses: ./.github/workflows/unity-build.yml
+    with:
+      project-path: ${{ inputs.project-path }}
+      build-targets: ${{ inputs.build-targets }}
+      runner-labels: ${{ inputs.runner-labels }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+      ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+      ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download Built Artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          path: release-artifacts
+
+      - name: Package Release Archives
+        shell: pwsh
+        run: |
+          $artifactDir = "release-packages"
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          
+          $folders = Get-ChildItem -Path "release-artifacts" -Directory
+          foreach ($folder in $folders) {
+              $zipPath = Join-Path $artifactDir "$($folder.Name).zip"
+              Write-Host "Compressing $($folder.FullName) to $zipPath..."
+              Compress-Archive -Path "$($folder.FullName)\*" -DestinationPath $zipPath -Force
+          }
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        with:
+          name: "Release ${{ needs.build.outputs.semver }}"
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: release-packages/*

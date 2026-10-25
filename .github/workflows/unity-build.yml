@@ -1,0 +1,197 @@
+name: Unity Build Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      unity-version:
+        description: "Target Unity editor version. If omitted, resolved from ProjectSettings/ProjectVersion.txt."
+        required: false
+        type: string
+        default: ""
+      project-path:
+        description: "Relative path to the Unity project root."
+        required: false
+        type: string
+        default: "."
+      build-targets:
+        description: "JSON array of build target platforms."
+        required: false
+        type: string
+        default: '["StandaloneWindows64", "Android", "WebGL"]'
+      build-method:
+        description: "The static C# method to invoke via -executeMethod."
+        required: false
+        type: string
+        default: "UnityBuildPipeline.BuildScript.PerformBuild"
+      android-build-format:
+        description: "Android output format: AAB (Google Play Bundle) or APK."
+        required: false
+        type: string
+        default: "AAB"
+      runner-labels:
+        description: "JSON array of labels for runner selection."
+        required: false
+        type: string
+        default: '["self-hosted", "windows", "unity"]'
+      clean-library:
+        description: "Whether to force clean the Library/ cache directory."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        description: "Base64 encoded Android distribution keystore file."
+        required: false
+      ANDROID_KEYSTORE_PASS:
+        description: "Password for the Android keystore."
+        required: false
+      ANDROID_KEYALIAS_NAME:
+        description: "Alias name for the Android signing key."
+        required: false
+      ANDROID_KEYALIAS_PASS:
+        description: "Password for the Android signing key alias."
+        required: false
+    outputs:
+      semver:
+        description: "Resolved semantic version string."
+        value: ${{ jobs.resolve-version.outputs.semver }}
+      bundle_version_code:
+        description: "Resolved Android bundleVersionCode integer."
+        value: ${{ jobs.resolve-version.outputs.bundle_version_code }}
+
+permissions: {}
+
+jobs:
+  resolve-version:
+    name: Resolve Build Version
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      semver: ${{ steps.version.outputs.semver }}
+      bundle_version_code: ${{ steps.version.outputs.bundle_version_code }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Calculate Version Metadata
+        id: version
+        shell: pwsh
+        run: |
+          .\scripts\Resolve-BuildVersion.ps1 -RepoRoot "."
+
+  build:
+    name: Build ${{ matrix.build-target }}
+    needs: resolve-version
+    runs-on: ${{ fromJSON(inputs.runner-labels) }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    concurrency:
+      group: unity-build-${{ github.repository }}-${{ inputs.project-path }}-${{ matrix.build-target }}
+      cancel-in-progress: false
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build-target: ${{ fromJSON(inputs.build-targets) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          lfs: true
+
+      - name: Resolve Unity Editor Version
+        id: unity-version
+        shell: pwsh
+        run: |
+          $args = @{ ProjectPath = "${{ inputs.project-path }}" }
+          if ("${{ inputs.unity-version }}" -ne "") {
+              $args["ExplicitVersion"] = "${{ inputs.unity-version }}"
+          }
+          .\scripts\Get-UnityVersion.ps1 @args
+
+      - name: Validate & Guard Library Cache
+        shell: pwsh
+        run: |
+          $forceClean = [System.Convert]::ToBoolean("${{ inputs.clean-library }}")
+          .\scripts\Guard-LibraryCache.ps1 -ProjectPath "${{ inputs.project-path }}" -ForceClean:$forceClean
+
+      - name: Prepare Android Keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: matrix.build-target == 'Android' && env.KEYSTORE_BASE64 != ''
+        shell: pwsh
+        run: |
+          $keystorePath = Join-Path $env:TEMP "release-$([System.Guid]::NewGuid().ToString('N')).keystore"
+          [System.IO.File]::WriteAllBytes($keystorePath, [System.Convert]::FromBase64String("${{ secrets.ANDROID_KEYSTORE_BASE64 }}"))
+          Write-Host "Decoded temporary Android keystore to $keystorePath"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "keystore_path=$keystorePath"
+
+      - name: Execute Unity Batchmode Build
+        shell: pwsh
+        env:
+          BUILD_VERSION: ${{ needs.resolve-version.outputs.semver }}
+          BUILD_NUMBER: ${{ needs.resolve-version.outputs.bundle_version_code }}
+          ANDROID_BUILD_FORMAT: ${{ inputs.android-build-format }}
+          ANDROID_KEYSTORE_NAME: ${{ steps.keystore.outputs.keystore_path }}
+          ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        run: |
+          $editorPath = "${{ steps.unity-version.outputs.unity_path }}"
+          if ([string]::IsNullOrWhiteSpace($editorPath) -or -not (Test-Path $editorPath)) {
+              throw "Unity editor executable was not found on runner."
+          }
+
+          $logPath = Join-Path "${{ inputs.project-path }}" "Builds\${{ matrix.build-target }}.log"
+          $buildDir = Split-Path -Parent $logPath
+          if (-not (Test-Path $buildDir)) {
+              New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+          }
+
+          $buildArgs = @(
+              "-batchmode",
+              "-nographics",
+              "-projectPath", "${{ inputs.project-path }}",
+              "-executeMethod", "${{ inputs.build-method }}",
+              "-buildTarget", "${{ matrix.build-target }}",
+              "-logFile", $logPath
+          )
+
+          Write-Host "=== Starting Unity Build [${{ matrix.build-target }}] ===" -ForegroundColor Cyan
+          $process = Start-Process -FilePath $editorPath -ArgumentList $buildArgs -Wait -PassThru -NoNewWindow
+          $diag = .\scripts\Map-UnityExitCode.ps1 -ExitCode $process.ExitCode -LogFile $logPath
+
+          if ($process.ExitCode -ne 0) {
+              throw "Unity build failed for ${{ matrix.build-target }} with exit code $($process.ExitCode)."
+          }
+
+      - name: Cleanup Android Keystore
+        if: always() && steps.keystore.outputs.keystore_path != ''
+        shell: pwsh
+        run: |
+          $keystorePath = "${{ steps.keystore.outputs.keystore_path }}"
+          if (Test-Path $keystorePath) {
+              Remove-Item -Path $keystorePath -Force -ErrorAction SilentlyContinue
+              Write-Host "Securely scrubbed temporary Android keystore file." -ForegroundColor Green
+          }
+
+      - name: Upload Build Artifacts
+        if: success()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: unity-build-${{ matrix.build-target }}-${{ needs.resolve-version.outputs.semver }}-${{ needs.resolve-version.outputs.short_sha }}
+          path: |
+            ${{ inputs.project-path }}/Builds/${{ matrix.build-target }}/
+            ${{ inputs.project-path }}/Builds/*.apk
+            ${{ inputs.project-path }}/Builds/*.aab
+            ${{ inputs.project-path }}/Builds/*.exe
+            ${{ inputs.project-path }}/Builds/${{ matrix.build-target }}.log
+          if-no-files-found: warn

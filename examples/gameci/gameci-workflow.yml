@@ -1,0 +1,46 @@
+name: GameCI Hosted Linux Pipeline (Reference)
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test on Ubuntu Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          lfs: true
+
+      - name: Cache Unity Library Folder
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: Library
+          key: Library-Linux-${{ hashFiles('ProjectSettings/ProjectVersion.txt', 'Packages/manifest.json') }}
+          restore-keys: |
+            Library-Linux-
+
+      - name: Run Tests
+        uses: game-ci/unity-test-runner@5817131b76378ee08ad4cde3067af92d7c66f864 # v4.2.0
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: .
+          testMode: PlayMode
+          artifactsPath: TestResults
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: gameci-test-results
+          path: TestResults

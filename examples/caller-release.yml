@@ -1,0 +1,22 @@
+name: Release Game Pipeline
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and Publish Release
+    uses: thesanketkale/unity-build-pipeline/.github/workflows/unity-release.yml@v0.1.0
+    with:
+      project-path: "."
+      build-targets: '["StandaloneWindows64", "Android", "WebGL"]'
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+      ANDROID_KEYALIAS_NAME: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+      ANDROID_KEYALIAS_PASS: ${{ secrets.ANDROID_KEYALIAS_PASS }}
