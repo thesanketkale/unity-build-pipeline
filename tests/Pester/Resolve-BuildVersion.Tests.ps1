@@ -14,10 +14,10 @@ Describe "Resolve-BuildVersion" {
         }
 
         It "Calculates bundleVersionCode with monotonic integer schema" {
-            $repoRoot = Join-Path $PSScriptRoot "../.."
-            $result = & $script:ScriptPath -RepoRoot $repoRoot -BaseVersion "1.2.3"
+            $tempDir = [System.IO.Path]::GetTempPath()
+            $result = & $script:ScriptPath -RepoRoot $tempDir -BaseVersion "1.2.3"
 
-            # Major=1, Minor=2, Patch=3 => 1 * 1,000,000 + 2 * 10,000 + 3 * 100 = 1,020,300 + commit offset
+            # Major=1, Minor=2, Patch=3 => 1 * 1,000,000 + 2 * 10,000 + 3 * 100 = 1,020,300
             $result.AndroidBundleVersionCode | Should -BeGreaterOrEqual 1020300
         }
     }
