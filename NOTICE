@@ -1,0 +1,10 @@
+unity-build-pipeline
+Copyright (c) 2026 Sanket Kale
+
+This product includes software developed as an open-source self-hosted CI/CD automation pipeline for Unity projects.
+
+Clean-Room Compliance Notice:
+This codebase was written entirely from scratch under clean-room engineering standards.
+No code, proprietary assets, confidential client identifiers, or internal tooling from
+any private client projects or prior commercial entities are contained herein.
+All sample scenes and test assets utilize synthetic, hand-authored data.
