@@ -25,8 +25,8 @@ have() { if command -v "$1" >/dev/null 2>&1 || [ -x "$1" ]; then return 0; fi; s
 
 cleanroom_guard() {
   local bad=0
-  for forbidden in "VueXR" "Trium Designs" "Fudge3d"; do
-    if git grep -I -q "$forbidden" 2>/dev/null; then
+  for forbidden in "Vue""XR" "Trium"" Designs" "Fudge""3d"; do
+    if git grep -I -q "$forbidden" -- ':(exclude)scripts/verify.*' 2>/dev/null; then
       echo "ERROR: Forbidden string '$forbidden' detected in repository!"
       bad=1
     fi
