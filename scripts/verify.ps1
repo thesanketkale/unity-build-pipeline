@@ -82,14 +82,20 @@ Invoke-Step "powershell static analysis (PSScriptAnalyzer)" {
     if (Get-Module -ListAvailable -Name PSScriptAnalyzer) {
         Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
         $targets = @("runner", "scripts", "tests") | Where-Object { Test-Path $_ }
-        if ($targets.Count -gt 0) {
-            $settingsPath = Join-Path $RepoRoot "PSScriptAnalyzerSettings.psd1"
-            $results = Invoke-ScriptAnalyzer -Path $targets -Settings $settingsPath -Recurse
-            $errorsOrWarnings = $results | Where-Object { $_.Severity -in @("Error", "Warning") }
-            if ($errorsOrWarnings.Count -gt 0) {
-                $msg = ($errorsOrWarnings | ForEach-Object { "$($_.ScriptName):$($_.Line) [$($_.Severity)] $($_.Message)" }) -join "`n"
-                throw "PSScriptAnalyzer issues detected:`n$msg"
+        $settingsPath = Join-Path $RepoRoot "PSScriptAnalyzerSettings.psd1"
+        $results = [System.Collections.Generic.List[object]]::new()
+        foreach ($target in $targets) {
+            $analysis = Invoke-ScriptAnalyzer -Path $target -Settings $settingsPath -Recurse
+            if ($null -ne $analysis) {
+                foreach ($item in $analysis) {
+                    $results.Add($item)
+                }
             }
+        }
+        $errorsOrWarnings = $results | Where-Object { $_.Severity -in @("Error", "Warning") }
+        if ($errorsOrWarnings.Count -gt 0) {
+            $msg = ($errorsOrWarnings | ForEach-Object { "$($_.ScriptName):$($_.Line) [$($_.Severity)] $($_.Message)" }) -join "`n"
+            throw "PSScriptAnalyzer issues detected:`n$msg"
         }
     } else {
         Add-Skip "PSScriptAnalyzer (module not installed)"
