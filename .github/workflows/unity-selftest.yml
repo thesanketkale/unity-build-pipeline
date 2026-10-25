@@ -1,0 +1,29 @@
+name: Unity Self-Test (Manual)
+
+# SECURITY: Runs strictly via manual dispatch on self-hosted runners.
+# NEVER trigger this on untrusted pull requests.
+on:
+  workflow_dispatch:
+    inputs:
+      test-platforms:
+        description: "Platforms to run tests on (EditMode, PlayMode)"
+        required: false
+        type: string
+        default: "EditMode,PlayMode"
+      clean-library:
+        description: "Force clean Library folder before run"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  run-tests:
+    name: Self-Test Unity Runner
+    uses: ./.github/workflows/unity-test.yml
+    with:
+      project-path: "samples/minimal-project"
+      test-platforms: ${{ inputs.test-platforms }}
+      clean-library: ${{ inputs.clean-library }}
+      runner-labels: '["self-hosted", "windows", "unity"]'
