@@ -1,0 +1,35 @@
+# Auto-detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# Explicit text file types
+*.cs text diff=csharp eol=lf
+*.ps1 text eol=lf
+*.psm1 text eol=lf
+*.psd1 text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+
+# Unity serialization text formats
+*.unity text merge=unityyamlmerge eol=lf
+*.prefab text merge=unityyamlmerge eol=lf
+*.asset text merge=unityyamlmerge eol=lf
+*.meta text merge=unityyamlmerge eol=lf
+*.mat text merge=unityyamlmerge eol=lf
+
+# Binary file types
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.psd binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.apk binary
+*.aab binary
+*.zip binary
+*.tar.gz binary

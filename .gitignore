@@ -1,0 +1,49 @@
+# Unity & Game Engine artifacts
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+Recordings/
+
+# Visual Studio / Rider / JetBrains
+.vs/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# OS and temporary artifacts
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+*.bak
+*.swp
+
+# Actions Runner runtime & local workspaces
+_work/
+_diag/
+.runner
+.credentials
+.credentials_rsaparams
+
+# Secrets & signing keys
+*.keystore
+*.jks
+*.p12
+*.pem
+
+# Test & coverage results
+TestResults/
+test-results/
+.pipeline/unity-*.xml
+.pipeline/unity-*.log

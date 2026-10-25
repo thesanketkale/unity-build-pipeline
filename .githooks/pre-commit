@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Git pre-commit hook: runs fast checks before allowing commit
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT" || exit 1
+
+if [ -f "scripts/verify.sh" ]; then
+  bash scripts/verify.sh fast
+  exit $LASTEXITCODE
+fi
+exit 0
