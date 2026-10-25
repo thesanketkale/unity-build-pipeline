@@ -14,7 +14,7 @@ All contributors and participants are expected to adhere to our [Code of Conduct
 
 This project is governed by strict clean-room software engineering standards:
 1. All contributions must be original works authored by the contributor or derived from declared, MIT-compatible open-source dependencies.
-2. Under no circumstances may proprietary code, confidential client assets, or internal configurations from commercial organizations (including VueXR LLC, Trium Designs Pvt. Ltd., or any client contracts) be committed or referenced.
+2. Under no circumstances may proprietary code, confidential client assets, or internal configurations from commercial organizations, prior employers, or private client contracts be committed or referenced.
 3. Sample scenes and assets must use synthetic, placeholder data only.
 
 ---
