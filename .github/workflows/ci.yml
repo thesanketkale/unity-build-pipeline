@@ -46,6 +46,11 @@ jobs:
           Expand-Archive -Path $zipPath -DestinationPath $binDir -Force
           Add-Content -Path $env:GITHUB_PATH -Value $binDir
 
+      - name: Install yamllint
+        shell: pwsh
+        run: |
+          pip install --quiet yamllint
+
       - name: Run Full Repository Verification
         shell: pwsh
         run: |
