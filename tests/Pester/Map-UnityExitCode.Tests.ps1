@@ -73,7 +73,7 @@ Describe "Map-UnityExitCode" {
     }
 
     Context "AC-0 [BUG-REPRO]: False Annotation Emission Reproduction" {
-        It "AC-0 reproduces false ::error:: annotation emission when suppression is absent" -Skip {
+        It "AC-0 reproduces false ::error:: annotation emission when suppression is absent" {
             $prev = $env:PESTER_TESTING
             try {
                 Remove-Item env:PESTER_TESTING -ErrorAction SilentlyContinue
@@ -91,7 +91,7 @@ Describe "Map-UnityExitCode" {
     }
 
     Context "AC-1 [MAP-NO-ANNOTATION]: Annotation Suppression" {
-        It "AC-1 suppresses ::error:: annotation and sets AnnotationMessage when -NoAnnotation is specified" -Skip {
+        It "AC-1 suppresses ::error:: annotation and sets AnnotationMessage when -NoAnnotation is specified" {
             $prev = $env:PESTER_TESTING
             try {
                 Remove-Item env:PESTER_TESTING -ErrorAction SilentlyContinue
@@ -99,7 +99,7 @@ Describe "Map-UnityExitCode" {
                 $errorLines = @($output | Where-Object { "$_" -match '^::error::' })
                 $errorLines.Count | Should -Be 0
 
-                $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                 $result.ExitCode | Should -Be 2
                 $result.AnnotationMessage | Should -Not -BeNullOrEmpty
                 $result.AnnotationMessage | Should -Match "Unity failed with exit code 2 \(CompilationError\)"
@@ -111,7 +111,7 @@ Describe "Map-UnityExitCode" {
             }
         }
 
-        It "AC-1 suppresses ::error:: annotation when PESTER_TESTING env var is set" -Skip {
+        It "AC-1 suppresses ::error:: annotation when PESTER_TESTING env var is set" {
             $prev = $env:PESTER_TESTING
             try {
                 $env:PESTER_TESTING = "true"
@@ -119,7 +119,7 @@ Describe "Map-UnityExitCode" {
                 $errorLines = @($output | Where-Object { "$_" -match '^::error::' })
                 $errorLines.Count | Should -Be 0
 
-                $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                 $result.ExitCode | Should -Be 3
                 $result.AnnotationMessage | Should -Not -BeNullOrEmpty
                 $result.AnnotationMessage | Should -Match "Unity failed with exit code 3 \(TestFailure\)"
@@ -131,7 +131,7 @@ Describe "Map-UnityExitCode" {
             }
         }
 
-        It "AC-1 populates AnnotationMessage for non-zero exit codes" -Skip {
+        It "AC-1 populates AnnotationMessage for non-zero exit codes" {
             $prev = $env:PESTER_TESTING
             try {
                 $env:PESTER_TESTING = "true"
@@ -144,7 +144,7 @@ Describe "Map-UnityExitCode" {
                 )
                 foreach ($case in $codes) {
                     $output = & $script:ScriptPath -ExitCode $case.ExitCode -NoAnnotation 6>&1
-                    $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                    $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                     $result.AnnotationMessage | Should -Not -BeNullOrEmpty
                     $result.AnnotationMessage | Should -Match "Unity failed with exit code $($case.ExitCode) \($($case.Category)\)"
                 }
@@ -158,7 +158,7 @@ Describe "Map-UnityExitCode" {
     }
 
     Context "AC-2 [MAP-RUNTIME-ANNOTATION]: Runtime Annotation Emission" {
-        It "AC-2 does not emit ::error:: and sets AnnotationMessage to null for exit code 0" -Skip {
+        It "AC-2 does not emit ::error:: and sets AnnotationMessage to null for exit code 0" {
             $prev = $env:PESTER_TESTING
             try {
                 Remove-Item env:PESTER_TESTING -ErrorAction SilentlyContinue
@@ -166,7 +166,7 @@ Describe "Map-UnityExitCode" {
                 $errorLines = @($output | Where-Object { "$_" -match '^::error::' })
                 $errorLines.Count | Should -Be 0
 
-                $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                 $result.ExitCode | Should -Be 0
                 $result.PSObject.Properties.Match("AnnotationMessage").Count | Should -Be 1
                 $result.AnnotationMessage | Should -BeNullOrEmpty
@@ -178,7 +178,7 @@ Describe "Map-UnityExitCode" {
             }
         }
 
-        It "AC-2 emits ::error:: annotation and returns AnnotationMessage in runtime mode for non-zero exit code" -Skip {
+        It "AC-2 emits ::error:: annotation and returns AnnotationMessage in runtime mode for non-zero exit code" {
             $prev = $env:PESTER_TESTING
             try {
                 Remove-Item env:PESTER_TESTING -ErrorAction SilentlyContinue
@@ -187,7 +187,7 @@ Describe "Map-UnityExitCode" {
                 $errorLines.Count | Should -Be 1
                 "$($errorLines[0])" | Should -Be "::error::Unity failed with exit code 1 (GeneralFailure): General build failure, uncaught exception, or user script error."
 
-                $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                 $result.ExitCode | Should -Be 1
                 $result.AnnotationMessage | Should -Be "Unity failed with exit code 1 (GeneralFailure): General build failure, uncaught exception, or user script error."
             }
@@ -198,7 +198,7 @@ Describe "Map-UnityExitCode" {
             }
         }
 
-        It "AC-2 includes extracted log errors in runtime ::error:: annotation and AnnotationMessage" -Skip {
+        It "AC-2 includes extracted log errors in runtime ::error:: annotation and AnnotationMessage" {
             $tempLog = [System.IO.Path]::GetTempFileName()
             $prev = $env:PESTER_TESTING
             try {
@@ -214,7 +214,7 @@ Describe "Map-UnityExitCode" {
                 $errorLines.Count | Should -Be 1
                 "$($errorLines[0])" | Should -Match "Details: Assets/Scripts/RotateObject\.cs"
 
-                $result = $output | Where-Object { $_ -is [PSCustomObject] }
+                $result = $output | Where-Object { $_ -is [PSCustomObject] -and $_ -isnot [System.Management.Automation.InformationRecord] }
                 $result.AnnotationMessage | Should -Match "Details: Assets/Scripts/RotateObject\.cs"
             }
             finally {
