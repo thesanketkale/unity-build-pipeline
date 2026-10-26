@@ -9,6 +9,8 @@
     The process exit code returned by Unity.exe.
 .PARAMETER LogFile
     Optional path to the Unity batchmode logFile.
+.PARAMETER NoAnnotation
+    Suppresses GitHub Actions ::error:: workflow annotation output.
 .EXAMPLE
     .\Map-UnityExitCode.ps1 -ExitCode 2 -LogFile "unity.log"
 #>
@@ -18,7 +20,10 @@ param(
     [int]$ExitCode,
 
     [Parameter(Mandatory = $false)]
-    [string]$LogFile
+    [string]$LogFile,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$NoAnnotation
 )
 
 $ErrorActionPreference = "Stop"
@@ -62,6 +67,7 @@ Write-Host "Exit Code:   $ExitCode"
 Write-Host "Category:    $($Mapping.Category)"
 Write-Host "Description: $($Mapping.Description)"
 
+$annotationMsg = $null
 if ($ExitCode -ne 0) {
     # Format message for GitHub Actions annotation
     $annotationMsg = "Unity failed with exit code $ExitCode ($($Mapping.Category)): $($Mapping.Description)"
@@ -69,12 +75,17 @@ if ($ExitCode -ne 0) {
         $sampleErrors = ($ExtractedErrors | Select-Object -First 3) -join " | "
         $annotationMsg += " - Details: $sampleErrors"
     }
-    Write-Host "::error::$annotationMsg"
+
+    $shouldAnnotate = ($ExitCode -ne 0) -and (-not $NoAnnotation) -and (-not $env:PESTER_TESTING)
+    if ($shouldAnnotate) {
+        Write-Host "::error::$annotationMsg"
+    }
 }
 
 return [PSCustomObject]@{
-    ExitCode        = $ExitCode
-    Category        = $Mapping.Category
-    Description     = $Mapping.Description
-    ExtractedErrors = $ExtractedErrors.ToArray()
+    ExitCode          = $ExitCode
+    Category          = $Mapping.Category
+    Description       = $Mapping.Description
+    ExtractedErrors   = $ExtractedErrors.ToArray()
+    AnnotationMessage = $annotationMsg
 }
