@@ -7,6 +7,8 @@
 *.psm1 text eol=lf
 *.psd1 text eol=lf
 *.sh text eol=lf
+scripts/verify.sh text eol=lf
+.githooks/* text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 *.json text eol=lf

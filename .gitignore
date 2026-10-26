@@ -47,3 +47,7 @@ TestResults/
 test-results/
 .pipeline/unity-*.xml
 .pipeline/unity-*.log
+
+# Claude local settings
+.claude/settings.local.json
+
